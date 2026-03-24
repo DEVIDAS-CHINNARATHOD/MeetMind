@@ -1,0 +1,23 @@
+# Dependencies (Docker will install these)
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Build outputs
+dist/
+build/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
