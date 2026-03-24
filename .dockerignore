@@ -1,0 +1,14 @@
+node_modules
+.git
+.env
+.env.*
+!.env.example
+*.md
+!README.md
+.gitignore
+dist
+build
+__pycache__
+*.pyc
+.vscode
+.idea
