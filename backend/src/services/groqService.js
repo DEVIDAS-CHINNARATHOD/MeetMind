@@ -91,34 +91,61 @@ async function generateMOM(transcript) {
     throw err;
   }
 
-  const prompt = `You are an expert meeting secretary. Analyze the following meeting transcript and generate a structured Minutes of Meeting (MOM) in JSON format.
+  const prompt = `You are an expert meeting secretary with exceptional attention to detail. Analyze the following meeting transcript and generate a comprehensive, detailed Minutes of Meeting (MOM) in JSON format.
 
 TRANSCRIPT:
 ${transcript}
 
+INSTRUCTIONS:
+1. Be VERY DETAILED and DESCRIPTIVE in every section
+2. Extract ALL important points - don't summarize too much
+3. Include context, reasoning, and background for decisions
+4. Capture who said what when relevant
+5. Include specific numbers, dates, and technical details mentioned
+6. Write in complete, clear sentences
+7. Each discussion point should be at least 1-2 sentences explaining the topic thoroughly
+8. Each decision should include WHY it was made and WHAT impact it will have
+9. Action items should be specific and actionable with full context
+
 Return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
 {
-  "summary": "A concise 2-3 sentence summary of the entire meeting",
-  "keyDiscussionPoints": ["Point 1", "Point 2", "..."],
-  "decisionsTaken": ["Decision 1", "Decision 2", "..."],
+  "summary": "A comprehensive 4-6 sentence summary covering: main purpose of meeting, key topics discussed, major outcomes, important decisions made, and next steps. Be specific and detailed.",
+  "keyDiscussionPoints": [
+    "Detailed discussion point 1 with context and background (2-3 sentences minimum)",
+    "Detailed discussion point 2 explaining what was discussed, why it matters, and what perspectives were shared",
+    "Continue with all major discussion topics, including technical details, concerns raised, and solutions proposed"
+  ],
+  "decisionsTaken": [
+    "Decision 1: Explain what was decided, WHY this decision was made, WHO will be affected, and WHAT the expected outcome/impact is",
+    "Decision 2: Include the full context - what problem this solves, alternatives considered, and implementation approach",
+    "Continue with all decisions made, ensuring each includes rationale and implications"
+  ],
   "actionItems": [
     {
-      "task": "Description of the task",
-      "responsible": "Name or role of person responsible",
-      "deadline": "Deadline if mentioned, or 'Not specified'"
+      "task": "Very specific, detailed description of the task including what needs to be done, how it should be done, expected deliverables, and any dependencies or prerequisites",
+      "responsible": "Full name or role of person responsible (extract from transcript)",
+      "deadline": "Specific date/time if mentioned, or 'Not specified'"
     }
   ],
-  "risks": ["Risk or concern 1", "Risk or concern 2"],
-  "nextMeetingAgenda": ["Agenda item 1", "Agenda item 2"]
+  "risks": [
+    "Risk/Concern 1: Explain the risk in detail, why it's a concern, potential impact, and any mitigation strategies discussed",
+    "Risk/Concern 2: Include severity, likelihood, affected areas, and proposed solutions or monitoring approach",
+    "Continue with all risks, blockers, challenges, or concerns mentioned"
+  ],
+  "nextMeetingAgenda": [
+    "Detailed agenda item 1 - explain what will be discussed and why it's important",
+    "Detailed agenda item 2 - include specific topics, questions to address, and expected outcomes",
+    "Continue with all topics to be covered in next meeting"
+  ]
 }
 
-Be thorough and extract all information from the transcript. If a section has no items, use an empty array.`;
+REMEMBER: BE DETAILED, DESCRIPTIVE, AND COMPREHENSIVE. Extract MAXIMUM information from the transcript. Each section should provide complete context and understanding. If a section has no items, use an empty array.`;
 
   const response = await createChatCompletion({
     model: MODEL,
     messages: [{ role: 'user', content: prompt }],
-    temperature: 0.3,
-    max_tokens: 2048,
+    temperature: 0.4,
+    max_tokens: 4096,
   });
 
   const content = response.choices?.[0]?.message?.content;
