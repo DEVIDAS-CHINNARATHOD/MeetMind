@@ -170,7 +170,7 @@ export default function MeetingPage() {
           {activeSection === 'mom' && (
             <div>
               {regenLoading ? <MOMSkeleton /> :
-               meeting.mom ? <MOMDisplay mom={meeting.mom} /> : (
+               meeting.mom ? <MOMDisplay meetingId={meeting.id} meetingTitle={meeting.title} mom={meeting.mom} /> : (
                 <div style={{ textAlign: 'center', padding: '3rem' }}>
                   <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⚙️</div>
                   <p style={{ color: 'var(--color-text-secondary)', marginBottom: '1.25rem' }}>MOM not yet generated.</p>

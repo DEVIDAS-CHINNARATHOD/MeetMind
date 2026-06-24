@@ -1,8 +1,11 @@
-from fastapi import FastAPI, HTTPException
+import os
+import tempfile
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-import numpy as np
+from faster_whisper import WhisperModel
 
 from embedder import chunk_text, embed
 from store import add_vectors, search_vectors, delete_by_meeting
@@ -30,9 +33,94 @@ class SearchRequest(BaseModel):
     top_k: int = 5
 
 
+_whisper_model = None
+
+
+def get_whisper_model() -> WhisperModel:
+    global _whisper_model
+    if _whisper_model is None:
+        model_name = os.getenv("WHISPER_MODEL", "small")
+        device = os.getenv("WHISPER_DEVICE", "auto")
+        compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
+        print(f"[Transcription] Loading Whisper model '{model_name}' (device={device}, compute_type={compute_type})...")
+        _whisper_model = WhisperModel(model_name, device=device, compute_type=compute_type)
+        print("[Transcription] Whisper model loaded.")
+    return _whisper_model
+
+
+def transcribe_audio_path(audio_path: str, language: Optional[str] = "en") -> str:
+    model = get_whisper_model()
+
+    try:
+        whisper_language = None if not language or language == "auto" else language
+        segments, _info = model.transcribe(
+            audio_path,
+            language=whisper_language,
+            vad_filter=True,
+            beam_size=5,
+        )
+        transcript = " ".join(seg.text.strip() for seg in segments if seg.text and seg.text.strip()).strip()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {exc}")
+
+    if not transcript:
+        raise HTTPException(status_code=422, detail="No speech detected in uploaded audio")
+
+    return transcript
+
+
+def pick_audio_suffix(file_name: Optional[str]) -> str:
+    if not file_name:
+        return ".webm"
+
+    allowed = {
+        ".flac",
+        ".mp3",
+        ".mp4",
+        ".mpeg",
+        ".mpga",
+        ".m4a",
+        ".ogg",
+        ".wav",
+        ".webm",
+    }
+    ext = os.path.splitext(file_name)[1].lower()
+    return ext if ext in allowed else ".webm"
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "MeetMind Vector Service"}
+
+
+@app.post("/transcribe")
+async def transcribe(request: Request, language: Optional[str] = "en"):
+    """Local audio transcription using faster-whisper."""
+    incoming_file_name = request.headers.get("x-file-name")
+    suffix = pick_audio_suffix(incoming_file_name)
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+        temp_path = tmp_file.name
+
+    bytes_written = 0
+    try:
+        with open(temp_path, "wb") as audio_file:
+            async for chunk in request.stream():
+                if chunk:
+                    audio_file.write(chunk)
+                    bytes_written += len(chunk)
+
+        if bytes_written == 0:
+            raise HTTPException(status_code=400, detail="Audio bytes are required")
+
+        text = transcribe_audio_path(temp_path, language=language)
+    finally:
+        try:
+            os.remove(temp_path)
+        except OSError:
+            pass
+
+    return {"text": text, "language": language or "auto", "provider": "local-whisper"}
 
 
 @app.post("/index")

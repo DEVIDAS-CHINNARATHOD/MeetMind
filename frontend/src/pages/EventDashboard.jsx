@@ -10,10 +10,12 @@ import {
   Clock,
   FileCheck2,
   FileText,
+  Mic,
   MessageSquareText,
   Plus,
   Search,
   Sparkles,
+  Square,
   Target,
   Upload,
   UploadCloud,
@@ -24,6 +26,7 @@ import remarkGfm from 'remark-gfm';
 import {
   chatWithEvent,
   createMeeting,
+  createMeetingFromAudio,
   generateEventSummary,
   getEvent,
   getEventActionItems,
@@ -63,6 +66,12 @@ export default function EventDashboard() {
   });
   const [creatingMeeting, setCreatingMeeting] = useState(false);
   const fileInputRef = useRef(null);
+  const audioInputRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordingChunksRef = useRef([]);
+  const recordingStreamRef = useRef(null);
+  const [audioFile, setAudioFile] = useState(null);
+  const [recording, setRecording] = useState(false);
 
   const [chatHistory, setChatHistory] = useState([]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -97,14 +106,29 @@ export default function EventDashboard() {
   const handleCreateMeeting = async (e) => {
     e.preventDefault();
     if (!meetingForm.title.trim()) { addNotification('Meeting title required', 'error'); return; }
-    if (!meetingForm.transcript.trim()) { addNotification('Transcript required', 'error'); return; }
+    if (!meetingForm.transcript.trim() && !audioFile) {
+      addNotification('Paste a transcript or upload meeting audio', 'error');
+      return;
+    }
     setCreatingMeeting(true);
     try {
-      await createMeeting({ eventId: id, ...meetingForm });
+      if (audioFile) {
+        const data = new FormData();
+        data.append('eventId', id);
+        data.append('title', meetingForm.title);
+        data.append('date', meetingForm.date);
+        data.append('audio', audioFile);
+        await createMeetingFromAudio(data);
+      } else {
+        await createMeeting({ eventId: id, ...meetingForm });
+      }
       await fetchEvent();
       setShowModal(false);
       setMeetingForm({ title: '', date: new Date().toISOString().split('T')[0], transcript: '' });
-      addNotification('Meeting added and MOM generated!', 'success');
+      setAudioFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (audioInputRef.current) audioInputRef.current.value = '';
+      addNotification(audioFile ? 'Audio transcribed and MOM generated!' : 'Meeting added and MOM generated!', 'success');
       setActiveTab('Timeline');
     } catch (err) {
       addNotification(err.response?.data?.error || 'Failed to create meeting', 'error');
@@ -119,6 +143,59 @@ export default function EventDashboard() {
     const reader = new FileReader();
     reader.onload = (ev) => setMeetingForm(f => ({ ...f, transcript: ev.target.result }));
     reader.readAsText(file);
+  };
+
+  const handleAudioUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setAudioFile(file);
+  };
+
+  const stopRecordingStream = () => {
+    recordingStreamRef.current?.getTracks().forEach(track => track.stop());
+    recordingStreamRef.current = null;
+  };
+
+  const handleStartRecording = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      addNotification('Voice recording is not supported in this browser', 'error');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const options = MediaRecorder.isTypeSupported('audio/webm') ? { mimeType: 'audio/webm' } : undefined;
+      const recorder = new MediaRecorder(stream, options);
+
+      recordingStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      recordingChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) recordingChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        const file = new File([blob], `meeting-recording-${Date.now()}.webm`, { type: blob.type || 'audio/webm' });
+        setAudioFile(file);
+        setRecording(false);
+        stopRecordingStream();
+      };
+
+      recorder.start();
+      setRecording(true);
+    } catch {
+      addNotification('Microphone permission denied or unavailable', 'error');
+      setRecording(false);
+      stopRecordingStream();
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
   };
 
   const handleEventChat = async (question) => {
@@ -349,8 +426,26 @@ export default function EventDashboard() {
                   <button type="button" className="workspace-secondary mini" onClick={() => fileInputRef.current?.click()}>
                     <Upload size={14} /> Upload .txt
                   </button>
+                  <button type="button" className="workspace-secondary mini" onClick={() => audioInputRef.current?.click()}>
+                    <Mic size={14} /> Upload audio
+                  </button>
+                  <button
+                    type="button"
+                    className="workspace-secondary mini"
+                    onClick={recording ? handleStopRecording : handleStartRecording}
+                  >
+                    {recording ? <Square size={14} /> : <Mic size={14} />}
+                    {recording ? 'Stop recording' : 'Record voice'}
+                  </button>
                 </div>
                 <input ref={fileInputRef} type="file" accept=".txt" style={{ display: 'none' }} onChange={handleFileUpload} />
+                <input
+                  ref={audioInputRef}
+                  type="file"
+                  accept="audio/*,.flac,.mp3,.mp4,.mpeg,.mpga,.m4a,.ogg,.wav,.webm"
+                  style={{ display: 'none' }}
+                  onChange={handleAudioUpload}
+                />
                 <textarea
                   className="input transcript-input"
                   rows={10}
@@ -360,14 +455,20 @@ export default function EventDashboard() {
                 />
                 <div className="transcript-helper">
                   <span>{transcriptWords} words</span>
-                  <span>MeetMind will generate MOM, decisions, action items, and chatbot context.</span>
+                  <span>
+                    {audioFile
+                      ? `Audio selected: ${audioFile.name}`
+                      : 'MeetMind will generate MOM, decisions, action items, and chatbot context.'}
+                  </span>
                 </div>
               </div>
 
               <div className="modal-actions">
                 <button type="button" className="workspace-secondary" onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="workspace-primary" disabled={creatingMeeting}>
-                  {creatingMeeting ? <><Spinner /> Generating MOM...</> : <><Sparkles size={16} /> Add and Generate MOM</>}
+                  {creatingMeeting
+                    ? <><Spinner /> {audioFile ? 'Transcribing audio...' : 'Generating MOM...'}</>
+                    : <><Sparkles size={16} /> {audioFile ? 'Transcribe and Generate MOM' : 'Add and Generate MOM'}</>}
                 </button>
               </div>
             </form>

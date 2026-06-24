@@ -1,11 +1,96 @@
 const Groq = require('groq-sdk');
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const MODEL = 'llama3-70b-8192';
+const MODEL = process.env.GROQ_CHAT_MODEL || 'llama-3.3-70b-versatile';
+const REQUIRED_MOM_ARRAYS = [
+  'keyDiscussionPoints',
+  'decisionsTaken',
+  'actionItems',
+  'risks',
+  'nextMeetingAgenda',
+];
+
+let groq = null;
+
+function getGroqClient() {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey || apiKey === 'your_groq_api_key_here') {
+    const err = new Error('GROQ_API_KEY is not configured. Add a valid key in backend/.env.');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  if (!groq) {
+    groq = new Groq({ apiKey });
+  }
+  return groq;
+}
+
+function extractJsonObject(content) {
+  const cleaned = String(content || '')
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start === -1 || end === -1 || end <= start) {
+      throw new Error('AI response did not contain a JSON object.');
+    }
+    return JSON.parse(cleaned.slice(start, end + 1));
+  }
+}
+
+function normalizeMOM(raw) {
+  const mom = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+
+  const normalized = {
+    summary: typeof mom.summary === 'string' && mom.summary.trim()
+      ? mom.summary.trim()
+      : 'No summary was generated.',
+    keyDiscussionPoints: [],
+    decisionsTaken: [],
+    actionItems: [],
+    risks: [],
+    nextMeetingAgenda: [],
+  };
+
+  for (const key of REQUIRED_MOM_ARRAYS) {
+    normalized[key] = Array.isArray(mom[key]) ? mom[key] : [];
+  }
+
+  normalized.actionItems = normalized.actionItems
+    .filter(item => item && typeof item === 'object')
+    .map(item => ({
+      task: typeof item.task === 'string' && item.task.trim() ? item.task.trim() : 'Untitled task',
+      responsible: typeof item.responsible === 'string' && item.responsible.trim()
+        ? item.responsible.trim()
+        : 'Not specified',
+      deadline: typeof item.deadline === 'string' && item.deadline.trim()
+        ? item.deadline.trim()
+        : 'Not specified',
+    }));
+
+  return normalized;
+}
+
+async function createChatCompletion(options) {
+  const client = getGroqClient();
+  return client.chat.completions.create(options);
+}
 
 // ── MOM Generation ────────────────────────────────────────
 
 async function generateMOM(transcript) {
+  if (!transcript || !transcript.trim()) {
+    const err = new Error('Transcript is required for MOM generation.');
+    err.statusCode = 400;
+    throw err;
+  }
+
   const prompt = `You are an expert meeting secretary. Analyze the following meeting transcript and generate a structured Minutes of Meeting (MOM) in JSON format.
 
 TRANSCRIPT:
@@ -29,30 +114,24 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
 
 Be thorough and extract all information from the transcript. If a section has no items, use an empty array.`;
 
-  const response = await groq.chat.completions.create({
+  const response = await createChatCompletion({
     model: MODEL,
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.3,
     max_tokens: 2048,
   });
 
-  const content = response.choices[0].message.content.trim();
-
-  // Strip any accidental markdown code fences
-  const cleaned = content.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim();
+  const content = response.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error('AI service returned an empty MOM response.');
+  }
 
   try {
-    return JSON.parse(cleaned);
-  } catch {
-    // Fallback: return a structured error MOM
-    return {
-      summary: 'MOM generation encountered a parsing issue. Raw AI response stored.',
-      keyDiscussionPoints: [cleaned],
-      decisionsTaken: [],
-      actionItems: [],
-      risks: [],
-      nextMeetingAgenda: [],
-    };
+    return normalizeMOM(extractJsonObject(content));
+  } catch (err) {
+    err.message = `Could not parse MOM JSON from AI response: ${err.message}`;
+    err.statusCode = 502;
+    throw err;
   }
 }
 
@@ -81,7 +160,7 @@ Instructions:
     { role: 'user', content: question },
   ];
 
-  const response = await groq.chat.completions.create({
+  const response = await createChatCompletion({
     model: MODEL,
     messages,
     temperature: 0.5,
@@ -115,7 +194,7 @@ Instructions:
     { role: 'user', content: question },
   ];
 
-  const response = await groq.chat.completions.create({
+  const response = await createChatCompletion({
     model: MODEL,
     messages,
     temperature: 0.5,
@@ -148,7 +227,7 @@ Write a detailed, well-structured report covering:
 
 Use markdown formatting with headers and bullet points.`;
 
-  const response = await groq.chat.completions.create({
+  const response = await createChatCompletion({
     model: MODEL,
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.6,
@@ -163,4 +242,5 @@ module.exports = {
   chatWithMeeting,
   chatWithEvent,
   generateEventSummary,
+  getGroqClient,
 };

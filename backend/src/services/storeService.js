@@ -84,10 +84,17 @@ function getMeetingsByEvent(eventId) {
 function updateMeetingMOM(id, mom) {
   const meeting = meetings.get(id);
   if (!meeting) return null;
+  const existingActionStatus = new Map(
+    meeting.actionItems.map(item => [
+      `${item.task}|${item.responsible || ''}|${item.deadline || ''}`,
+      item.status,
+    ])
+  );
+
   meeting.mom = mom;
   meeting.actionItems = (mom.actionItems || []).map(item => ({
     ...item,
-    status: 'pending',
+    status: existingActionStatus.get(`${item.task}|${item.responsible || ''}|${item.deadline || ''}`) || 'pending',
     id: uuidv4(),
   }));
   meeting.updatedAt = new Date().toISOString();
@@ -99,10 +106,14 @@ function updateMeetingMOM(id, mom) {
 function updateActionItemStatus(meetingId, actionItemId, status) {
   const meeting = meetings.get(meetingId);
   if (!meeting) return null;
+  const originalItems = meeting.actionItems;
   meeting.actionItems = meeting.actionItems.map(item =>
     item.id === actionItemId ? { ...item, status } : item
   );
+  if (originalItems.every(item => item.id !== actionItemId)) return null;
+  meeting.updatedAt = new Date().toISOString();
   meetings.set(meetingId, meeting);
+  touchEvent(meeting.eventId);
   return meeting;
 }
 

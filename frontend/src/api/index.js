@@ -23,6 +23,16 @@ export const getEventActionItems = (id) =>
 // ── Meetings ──────────────────────────────────────────────
 export const getMeeting = (id) => api.get(`/meeting/${id}`).then(r => r.data);
 export const createMeeting = (data) => api.post('/meeting/create', data).then(r => r.data);
+export const createMeetingFromAudio = (data) =>
+  api.post('/meeting/create-from-audio', data, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 30 * 60 * 1000,
+  }).then(r => r.data);
+export const downloadMeetingMOM = (id, format = 'markdown') =>
+  api.get(`/meeting/${id}/mom/download`, {
+    params: { format },
+    responseType: 'blob',
+  }).then(r => ({ blob: r.data, headers: r.headers }));
 export const regenerateMOM = (id) =>
   api.post(`/meeting/${id}/generate-mom`).then(r => r.data);
 export const chatWithMeeting = (id, question, history) =>

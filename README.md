@@ -49,7 +49,23 @@ python -m uvicorn main:app --reload --port 8000
 
 Runs at: http://localhost:8000
 
-> The app works fully without the vector service — semantic search just won't be available.
+> The app works fully without the vector service — semantic search and local audio transcription won't be available.
+
+### Local Audio Transcription (No API)
+
+- Audio transcription now runs locally through the Python service (`faster-whisper`), not through Groq API.
+- MOM generation still uses Groq API after transcription.
+
+Optional Whisper environment variables for `vector-service`:
+
+- `WHISPER_MODEL` (default: `small`)
+- `WHISPER_DEVICE` (default: `auto`)
+- `WHISPER_COMPUTE_TYPE` (default: `int8`)
+
+Optional backend variables for large audio files:
+
+- `MAX_AUDIO_FILE_MB` (default: `200`)
+- `TRANSCRIPTION_TIMEOUT_MS` (default: `1800000`)
 
 ## Usage
 
@@ -58,6 +74,11 @@ Runs at: http://localhost:8000
 3. **View MOM** — auto-generated instantly after adding meeting
 4. **Chat** — ask questions in Meeting Chat or Event Chat
 5. **Track Progress** — use Decisions and Action Items tabs
+
+### MOM Download
+
+- Open a meeting and go to the MOM tab.
+- Use `Download MOM (.md)` or `Download MOM (.json)`.
 
 ## Sample Transcript
 
@@ -80,6 +101,6 @@ MeetMind/
 | Frontend | React, Vite, Tailwind CSS, Framer Motion |
 | Backend | Node.js, Express, Groq SDK |
 | AI | Groq Cloud (Llama 3 70B) |
-| Vector Search | FastAPI, FAISS, Sentence Transformers |
+| Vector Search + Local STT | FastAPI, FAISS, Sentence Transformers, faster-whisper |
 | State | Zustand |
 | Storage | In-memory (prototype) |

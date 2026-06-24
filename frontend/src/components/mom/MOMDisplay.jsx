@@ -1,15 +1,76 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, FileText, MessageSquare, AlertTriangle,
-  CheckCircle2, Calendar, User, Clock, ArrowRight } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+  CheckCircle2, Calendar, User, Clock, ArrowRight, Download } from 'lucide-react';
+import { downloadMeetingMOM } from '../../api';
+import { useStore } from '../../store';
 
-export default function MOMDisplay({ mom }) {
+function parseFileName(contentDisposition, fallbackName) {
+  if (!contentDisposition) return fallbackName;
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1]);
+  const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  if (plainMatch?.[1]) return plainMatch[1];
+  return fallbackName;
+}
+
+function saveBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+export default function MOMDisplay({ meetingId, meetingTitle, mom }) {
+  const { addNotification } = useStore();
+  const [downloading, setDownloading] = useState(false);
+
   if (!mom) return null;
+
+  const handleDownload = async (format = 'markdown') => {
+    if (!meetingId || downloading) return;
+    setDownloading(true);
+    try {
+      const { blob, headers } = await downloadMeetingMOM(meetingId, format);
+      const ext = format === 'json' ? 'json' : 'md';
+      const fallbackName = `${String(meetingTitle || 'meeting').replace(/\s+/g, '-').toLowerCase()}-mom.${ext}`;
+      const fileName = parseFileName(headers['content-disposition'], fallbackName);
+      saveBlob(blob, fileName);
+      addNotification(`MOM downloaded as ${ext.toUpperCase()}`, 'success');
+    } catch {
+      addNotification('Failed to download MOM', 'error');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={() => handleDownload('markdown')}
+          disabled={downloading}
+        >
+          <Download size={14} />
+          {downloading ? 'Downloading...' : 'Download MOM (.md)'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={() => handleDownload('json')}
+          disabled={downloading}
+        >
+          <Download size={14} />
+          {downloading ? 'Downloading...' : 'Download MOM (.json)'}
+        </button>
+      </div>
+
       {/* Summary Banner */}
       <div style={{
         background: 'linear-gradient(135deg, var(--color-accent-light) 0%, #F0F4FF 100%)',
