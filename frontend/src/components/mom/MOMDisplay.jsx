@@ -54,11 +54,20 @@ export default function MOMDisplay({ meetingId, meetingTitle, mom }) {
         <button
           type="button"
           className="btn btn-ghost btn-sm"
+          onClick={() => handleDownload('pdf')}
+          disabled={downloading}
+        >
+          <Download size={14} />
+          {downloading ? 'Downloading...' : 'Download PDF'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
           onClick={() => handleDownload('markdown')}
           disabled={downloading}
         >
           <Download size={14} />
-          {downloading ? 'Downloading...' : 'Download MOM (.md)'}
+          {downloading ? 'Downloading...' : 'Download Markdown'}
         </button>
         <button
           type="button"
@@ -67,7 +76,7 @@ export default function MOMDisplay({ meetingId, meetingTitle, mom }) {
           disabled={downloading}
         >
           <Download size={14} />
-          {downloading ? 'Downloading...' : 'Download MOM (.json)'}
+          {downloading ? 'Downloading...' : 'Download JSON'}
         </button>
       </div>
 

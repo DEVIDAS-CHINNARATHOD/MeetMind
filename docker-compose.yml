@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # Backend API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - VECTOR_SERVICE_URL=http://vector-service:8000
+      - MAX_AUDIO_FILE_MB=100
+      - TRANSCRIPTION_TIMEOUT_MS=1800000
+    volumes:
+      - ./backend/src:/app/src
+    depends_on:
+      - vector-service
+    restart: unless-stopped
+    networks:
+      - meetmind-network
+
+  # Vector Search & Transcription Service
+  vector-service:
+    build:
+      context: ./vector-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - WHISPER_MODEL=small
+      - WHISPER_DEVICE=auto
+      - WHISPER_COMPUTE_TYPE=int8
+    volumes:
+      - ./vector-service:/app
+    restart: unless-stopped
+    networks:
+      - meetmind-network
+
+  # Frontend (Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      - BACKEND_URL=http://backend:3001
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - meetmind-network
+
+networks:
+  meetmind-network:
+    driver: bridge
+
+volumes:
+  vector-data:

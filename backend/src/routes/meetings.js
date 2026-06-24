@@ -10,7 +10,7 @@ const groq = require('../services/groqService');
 const transcription = require('../services/transcriptionService');
 const vector = require('../services/vectorService');
 
-const MAX_AUDIO_FILE_MB = Number.parseInt(process.env.MAX_AUDIO_FILE_MB || '', 10) || 200;
+const MAX_AUDIO_FILE_MB = Number.parseInt(process.env.MAX_AUDIO_FILE_MB || '', 10) || 100;
 const AUDIO_FILE_LIMIT_BYTES = MAX_AUDIO_FILE_MB * 1024 * 1024;
 const UPLOAD_DIR = path.join(os.tmpdir(), 'meetmind-audio');
 const SUPPORTED_AUDIO_EXTENSIONS = new Set([
@@ -220,8 +220,8 @@ router.post('/create-from-audio', handleAudioUpload, async (req, res) => {
   }
 });
 
-// GET /meeting/:id/mom/download?format=markdown|json — download MOM
-router.get('/:id/mom/download', (req, res) => {
+// GET /meeting/:id/mom/download?format=markdown|json|pdf — download MOM
+router.get('/:id/mom/download', async (req, res) => {
   try {
     const meeting = store.getMeetingById(req.params.id);
     if (!meeting) return res.status(404).json({ error: 'Meeting not found' });
@@ -244,8 +244,91 @@ router.get('/:id/mom/download', (req, res) => {
       }, null, 2));
     }
 
+    if (format === 'pdf') {
+      const PDFDocument = require('pdfkit');
+      const fileName = `${safeTitle}-mom-${datePart}.pdf`;
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+      const doc = new PDFDocument({ margin: 50 });
+      doc.pipe(res);
+
+      // Title
+      doc.fontSize(20).font('Helvetica-Bold').text('Minutes of Meeting (MOM)', { align: 'center' });
+      doc.moveDown();
+
+      // Meeting details
+      doc.fontSize(12).font('Helvetica-Bold').text(`Meeting: `, { continued: true })
+         .font('Helvetica').text(meeting.title || 'Untitled meeting');
+      doc.font('Helvetica-Bold').text(`Date: `, { continued: true })
+         .font('Helvetica').text(new Date(meeting.date).toLocaleString());
+      doc.moveDown();
+
+      // Summary
+      doc.fontSize(14).font('Helvetica-Bold').text('Summary');
+      doc.fontSize(11).font('Helvetica').text(meeting.mom.summary || 'No summary available', { align: 'justify' });
+      doc.moveDown();
+
+      // Key Discussion Points
+      if (meeting.mom.keyDiscussionPoints?.length > 0) {
+        doc.fontSize(14).font('Helvetica-Bold').text('Key Discussion Points');
+        meeting.mom.keyDiscussionPoints.forEach((point, i) => {
+          doc.fontSize(11).font('Helvetica').text(`${i + 1}. ${point}`, { indent: 20 });
+        });
+        doc.moveDown();
+      }
+
+      // Decisions
+      if (meeting.mom.decisionsTaken?.length > 0) {
+        doc.fontSize(14).font('Helvetica-Bold').text('Decisions Taken');
+        meeting.mom.decisionsTaken.forEach((decision, i) => {
+          doc.fontSize(11).font('Helvetica').text(`${i + 1}. ${decision}`, { indent: 20 });
+        });
+        doc.moveDown();
+      }
+
+      // Action Items
+      const actionItems = meeting.actionItems || meeting.mom.actionItems || [];
+      if (actionItems.length > 0) {
+        doc.fontSize(14).font('Helvetica-Bold').text('Action Items');
+        actionItems.forEach((item, i) => {
+          const status = item.status === 'completed' ? '✓' : '○';
+          doc.fontSize(11).font('Helvetica').text(`${status} ${item.task}`, { indent: 20 });
+          if (item.responsible && item.responsible !== 'Not specified') {
+            doc.fontSize(10).font('Helvetica').text(`   Owner: ${item.responsible}`, { indent: 30 });
+          }
+          if (item.deadline && item.deadline !== 'Not specified') {
+            doc.fontSize(10).font('Helvetica').text(`   Deadline: ${item.deadline}`, { indent: 30 });
+          }
+          if (i < actionItems.length - 1) doc.moveDown(0.5);
+        });
+        doc.moveDown();
+      }
+
+      // Risks
+      if (meeting.mom.risks?.length > 0) {
+        doc.fontSize(14).font('Helvetica-Bold').text('Risks & Concerns');
+        meeting.mom.risks.forEach((risk, i) => {
+          doc.fontSize(11).font('Helvetica').text(`${i + 1}. ${risk}`, { indent: 20 });
+        });
+        doc.moveDown();
+      }
+
+      // Next Meeting Agenda
+      if (meeting.mom.nextMeetingAgenda?.length > 0) {
+        doc.fontSize(14).font('Helvetica-Bold').text('Next Meeting Agenda');
+        meeting.mom.nextMeetingAgenda.forEach((item, i) => {
+          doc.fontSize(11).font('Helvetica').text(`${i + 1}. ${item}`, { indent: 20 });
+        });
+      }
+
+      doc.end();
+      return;
+    }
+
     if (format !== 'markdown' && format !== 'md') {
-      return res.status(400).json({ error: 'format must be markdown or json' });
+      return res.status(400).json({ error: 'format must be markdown, json, or pdf' });
     }
 
     const fileName = `${safeTitle}-mom-${datePart}.md`;
@@ -253,6 +336,7 @@ router.get('/:id/mom/download', (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     return res.status(200).send(momToMarkdown(meeting));
   } catch (err) {
+    console.error('[Download MOM Error]', err);
     return res.status(500).json({ error: err.message });
   }
 });
