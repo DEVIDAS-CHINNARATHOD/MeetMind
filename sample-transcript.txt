@@ -1,0 +1,55 @@
+College Hackathon 2026 — Meeting 1: Initial Planning Discussion
+Date: January 15, 2026
+Attendees: Prof. Rajan (Faculty Coordinator), Arjun (Student Lead), Priya (Marketing Head), Dev (Tech Lead), Kavya (Finance), Sneha (Design)
+
+Prof. Rajan: Good morning everyone. Welcome to our first planning meeting for Hackathon 2026. Let's start with a quick round of introductions and then jump into the agenda.
+
+Arjun: Thanks Professor. So the main goal today is to establish the event structure, set timelines, and divide responsibilities. We're targeting the last week of March 2026.
+
+Prof. Rajan: That sounds reasonable. We have about 10 weeks. What's the format we're proposing?
+
+Dev: We're thinking a 24-hour hackathon. Teams of 3 to 5 students. Problem statements across four tracks — AI and Machine Learning, Web and Mobile Development, Sustainability Tech, and Open Innovation.
+
+Priya: That's great. We'll need to start marketing at least 6 weeks before the event. I'm thinking social media campaigns, posters, and outreach to other colleges.
+
+Arjun: Agreed. We should open registrations by February 5th. That gives participants 7 weeks to register.
+
+Kavya: Regarding the budget — we're estimating around 3 lakhs total. That includes venue, prizes, food, branding, and logistics. I'll prepare a detailed breakdown by next week.
+
+Prof. Rajan: Have you thought about prizes?
+
+Arjun: Yes. First place: 50,000 rupees plus internship referrals. Second: 25,000. Third: 15,000. Track-specific prizes of 10,000 each. Plus goodies for all participants.
+
+Sneha: For branding, I'll design the logo, banners, T-shirts, and digital assets. I'll have initial logo concepts by January 22nd.
+
+Dev: We also need a registration website. I can build that using React and Firebase. Should be ready by January 28th.
+
+Prof. Rajan: Good. We need to also think about judges and mentors. We should approach industry professionals — at least 8 judges and 12 mentors.
+
+Arjun: I'll draft the outreach email for judges this week. Priya, can you handle the sponsor approach?
+
+Priya: Absolutely. I'll prepare a sponsorship deck. We're targeting 5 platinum sponsors at 40,000 each, and 10 gold sponsors at 15,000 each. That would cover most of the budget if we get good response.
+
+Kavya: That math works out well. I'll coordinate with Priya on the financial targets.
+
+Prof. Rajan: Any concerns so far?
+
+Dev: Yes — venue capacity. If we get 300+ registrations, we need a space that can accommodate that. The college auditorium fits 200. We may need to look at the sports complex or external venues.
+
+Arjun: Good point. I'll speak to the administration about the sports complex this week.
+
+Prof. Rajan: Also, let's think about food. 24 hours means we need dinner, midnight snacks, breakfast, and lunch.
+
+Kavya: I'll get quotes from at least 3 catering vendors by January 25th.
+
+Prof. Rajan: Excellent. Let me summarize what we decided today. The hackathon is confirmed for the last week of March 2026, 24-hour format with 4 tracks. Arjun is overall lead. Dev will build the website by January 28th. Sneha delivers logo by January 22nd. Priya starts sponsorship outreach. Kavya prepares budget and gets catering quotes. Registrations open February 5th.
+
+Arjun: Next meeting should be in two weeks — January 29th — to review website progress, initial sponsor responses, and branding assets.
+
+Prof. Rajan: Perfect. Anything else before we close?
+
+Sneha: I think we should also plan a volunteer team. We'll need at least 30 volunteers for the event day.
+
+Arjun: Great suggestion. I'll post volunteer applications on the college notice board by next week.
+
+Prof. Rajan: Good thinking. Let's close here. Everyone knows their tasks. Meeting adjourned.
